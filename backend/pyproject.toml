@@ -1,0 +1,18 @@
+[project]
+name = "xpenslens-backend"
+version = "0.1.0"
+description = "Backend API for Smart Expense Reimbursement System"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "sqlalchemy>=2.0",
+  "psycopg[binary]",
+  "pydantic-settings",
+  "python-dotenv",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

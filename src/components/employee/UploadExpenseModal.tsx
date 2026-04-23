@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { ApiError } from '@/lib/api-client';
+import { BackendExpenseCategory, createExpense, getExpense } from '@/lib/expenses-api';
 
 type UploadStep = 'upload' | 'scanning' | 'form' | 'success' | 'rejected';
 
@@ -37,6 +39,8 @@ export function UploadExpenseModal({ open, onClose }: UploadExpenseModalProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState(MOCK_EXTRACTED);
   const [scanProgress, setScanProgress] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function reset() {
     setStep('upload');
@@ -44,6 +48,8 @@ export function UploadExpenseModal({ open, onClose }: UploadExpenseModalProps) {
     setPreviewUrl(null);
     setForm(MOCK_EXTRACTED);
     setScanProgress(0);
+    setIsSubmitting(false);
+    setSubmitError(null);
   }
 
   function handleClose() {
@@ -89,12 +95,52 @@ export function UploadExpenseModal({ open, onClose }: UploadExpenseModalProps) {
     simulateScan();
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function toBackendCategory(category: string): BackendExpenseCategory {
+    if (category === 'Meals') return 'meals';
+    if (category === 'Travel') return 'travel';
+    return 'office_supplies';
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const amount = parseFloat(form.amount);
-    const isViolation = (form.category === 'Meals' && amount > 75) ||
-      (form.category === 'Entertainment' && amount > 200);
-    setTimeout(() => setStep(isViolation ? 'rejected' : 'success'), 400);
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    try {
+      const created = await createExpense({
+        total_amount: Number.parseFloat(form.amount),
+        currency: form.currency.toUpperCase(),
+        purchase_date: form.date,
+        merchant_name: form.merchant,
+        category: toBackendCategory(form.category),
+      });
+
+      // Reads back the created record to wire the second initial backend route.
+      const fetched = await getExpense(created.id);
+      setForm((prev) => ({
+        ...prev,
+        amount: fetched.total_amount.toString(),
+        currency: fetched.currency,
+        date: fetched.purchase_date,
+        merchant: fetched.merchant_name,
+        category: fetched.category === 'meals' ? 'Meals' : fetched.category === 'travel' ? 'Travel' : 'Office Supplies',
+      }));
+      setStep(fetched.status === 'rejected' ? 'rejected' : 'success');
+    } catch (error) {
+      const amount = Number.parseFloat(form.amount);
+      const isViolation = (form.category === 'Meals' && amount > 75) ||
+        (form.category === 'Entertainment' && amount > 200);
+
+      if (error instanceof ApiError && error.status === 501) {
+        setSubmitError('Backend endpoint is reachable, but business logic is not implemented yet. Showing demo flow.');
+      } else {
+        setSubmitError('Could not reach backend. Check backend server and VITE_API_BASE_URL.');
+      }
+
+      setTimeout(() => setStep(isViolation ? 'rejected' : 'success'), 300);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -217,6 +263,11 @@ export function UploadExpenseModal({ open, onClose }: UploadExpenseModalProps) {
 
           {step === 'form' && (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {submitError && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                  {submitError}
+                </div>
+              )}
               <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 rounded-xl p-3 flex items-start gap-2">
                 <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
                 <div>
@@ -302,8 +353,8 @@ export function UploadExpenseModal({ open, onClose }: UploadExpenseModalProps) {
                 <Button type="button" variant="outline" onClick={handleClose} className="flex-1">
                   {t('uploadCancel')}
                 </Button>
-                <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
-                  {t('uploadSubmit')}
+                <Button type="submit" disabled={isSubmitting} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+                  {isSubmitting ? 'Submitting...' : t('uploadSubmit')}
                 </Button>
               </div>
             </form>
