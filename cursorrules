@@ -1,0 +1,101 @@
+# General Engineering Rules
+- You are a Senior Backend Architect. Write clean, modular, and maintainable code.
+- Keep functions short and single-purpose.
+- Follow SOLID principles.
+- Prefer explicit typing, clear naming, and reusable components.
+- Write production-ready code only.
+
+# Technology Stack
+- Backend: Python with FastAPI.
+- Database: PostgreSQL with SQLAlchemy ORM.
+- Package Manager: uv (not pip).
+- AI Integration: Vision LLM API for receipt OCR/data extraction.
+- Storage: Secure object storage for uploaded receipt images.
+
+# Architecture Rules
+- Strictly use Service-Repository architecture.
+- `routes/` handles HTTP only.
+- `services/` contains all business logic.
+- `repositories/` handles DB queries only.
+- `models/` contains SQLAlchemy models.
+- `schemas/` contains Pydantic request/response models.
+- `core/` contains config, security, shared utilities.
+- Separate AI client logic into `integrations/ai/`.
+
+# Product Context
+- System manages employee expense reimbursements.
+- Users upload receipt images.
+- Vision LLM extracts:
+  - total amount
+  - currency
+  - purchase date
+  - merchant name
+- System classifies expense category:
+  - travel
+  - meals
+  - office supplies
+- User may complete missing fields manually.
+- Policy engine validates expense against company rules.
+- Final status:
+  - approved
+  - rejected
+  - flagged
+
+# Business Rules
+- Meal expenses may require customer/client name.
+- Reject if mandatory fields are missing.
+- Flag if amount exceeds category threshold.
+- All policy rules must be centralized in `services/policy_engine.py`.
+- Rules must be easily extendable.
+
+# AI Rules
+- Never send raw user text directly to LLM without validation.
+- Validate uploaded file type before processing.
+- Accept only JPG, JPEG, PNG.
+- Handle unreadable receipt responses gracefully.
+- Normalize extracted fields before saving.
+- Retry failed AI calls safely.
+
+# Performance Rules
+- Receipt processing target: under 10 seconds.
+- Use async endpoints when suitable.
+- Use background jobs for slow tasks.
+- Optimize DB queries with indexes.
+
+# Security Rules (CRITICAL)
+- Never hardcode API keys or secrets.
+- Use `.env` and `os.getenv()`.
+- Validate file uploads.
+- Enforce auth + role checks.
+- Protect admin/finance endpoints.
+- Sanitize all inputs.
+- Use HTTPS-ready configuration.
+
+# Database Rules
+- Store expenses, users, statuses, audit logs.
+- Use Alembic migrations.
+- Add timestamps to all tables.
+- Use UUIDs where appropriate.
+- Never expose internal IDs unnecessarily.
+
+# API Rules
+- Return consistent JSON responses.
+- Use proper HTTP status codes.
+- Add pagination for list endpoints.
+- Use structured error messages.
+
+# Testing Rules
+- Write unit tests for services.
+- Write integration tests for APIs.
+- Test policy edge cases.
+- Mock external AI APIs in tests.
+
+# Code Generation Rules
+- When generating new features:
+  1. create model
+  2. create schema
+  3. create repository
+  4. create service
+  5. create route
+  6. create tests
+- Never place business logic inside routes.
