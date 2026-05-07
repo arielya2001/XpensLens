@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { Eye, EyeOff, Zap, Shield, TrendingUp, Sun, Moon, Globe } from 'lucide-react';
-import { useApp, MOCK_EMPLOYEES, MOCK_ADMIN } from '@/contexts/AppContext';
+import { useApp } from '@/contexts/AppContext';
+import { apiRequest } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,18 +14,83 @@ export function AuthPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ email: '', password: '', name: '', confirm: '' });
+  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string; confirm?: string }>({});
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      if (role === 'admin') {
-        setUser(MOCK_ADMIN);
-      } else {
-        setUser({ ...MOCK_EMPLOYEES[0] });
+  const validateEmail = (value: string) => /^\S+@\S+\.\S+$/i.test(value);
+
+  const validateForm = () => {
+    const validationErrors: { name?: string; email?: string; password?: string; confirm?: string } = {};
+
+    if (mode === 'register') {
+      if (!form.name.trim()) {
+        validationErrors.name = 'Name is required.';
       }
+    }
+
+    if (!form.email.trim()) {
+      validationErrors.email = 'Email is required.';
+    } else if (!validateEmail(form.email.trim())) {
+      validationErrors.email = 'Enter a valid email address.';
+    }
+
+    if (!form.password) {
+      validationErrors.password = 'Password is required.';
+    } else if (form.password.length < 8) {
+      validationErrors.password = 'Password must be at least 8 characters.';
+    }
+
+    if (mode === 'register') {
+      if (!form.confirm) {
+        validationErrors.confirm = 'Please confirm your password.';
+      } else if (form.confirm !== form.password) {
+        validationErrors.confirm = 'Passwords do not match.';
+      }
+    }
+
+    setErrors(validationErrors);
+    return Object.keys(validationErrors).length === 0;
+  };
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    if (!validateForm()) {
+      setError('Please fix the highlighted fields before submitting.');
       setLoading(false);
-    }, 800);
+      return;
+    }
+
+    try {
+      if (mode === 'register') {
+        const user = await apiRequest('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: form.name,
+            email: form.email,
+            password: form.password,
+            role,
+          }),
+        });
+        setUser(user);
+      } else {
+        const response = await apiRequest('/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: form.email,
+            password: form.password,
+          }),
+        });
+        setUser(response.user);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong.';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const features = [
@@ -140,6 +206,11 @@ export function AuthPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
               {mode === 'register' && (
                 <div className="space-y-1.5">
                   <Label htmlFor="name" className="text-sm font-medium">{t('fullName')}</Label>
@@ -148,10 +219,14 @@ export function AuthPage() {
                     type="text"
                     placeholder="John Smith"
                     value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    onChange={e => {
+                      setForm(f => ({ ...f, name: e.target.value }));
+                      setErrors(prev => ({ ...prev, name: undefined }));
+                    }}
                     className="h-11"
                     required
                   />
+                  {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name}</p>}
                 </div>
               )}
 
@@ -162,10 +237,14 @@ export function AuthPage() {
                   type="email"
                   placeholder={role === 'admin' ? 'admin@company.com' : 'you@company.com'}
                   value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  onChange={e => {
+                    setForm(f => ({ ...f, email: e.target.value }));
+                    setErrors(prev => ({ ...prev, email: undefined }));
+                  }}
                   className="h-11"
                   required
                 />
+                {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
               </div>
 
               <div className="space-y-1.5">
@@ -176,10 +255,14 @@ export function AuthPage() {
                     type={showPw ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={form.password}
-                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    onChange={e => {
+                      setForm(f => ({ ...f, password: e.target.value }));
+                      setErrors(prev => ({ ...prev, password: undefined }));
+                    }}
                     className="h-11 pe-10"
                     required
                   />
+                  {errors.password && <p className="text-sm text-red-600 mt-1">{errors.password}</p>}
                   <button
                     type="button"
                     onClick={() => setShowPw(v => !v)}
@@ -198,10 +281,14 @@ export function AuthPage() {
                     type="password"
                     placeholder="••••••••"
                     value={form.confirm}
-                    onChange={e => setForm(f => ({ ...f, confirm: e.target.value }))}
+                    onChange={e => {
+                      setForm(f => ({ ...f, confirm: e.target.value }));
+                      setErrors(prev => ({ ...prev, confirm: undefined }));
+                    }}
                     className="h-11"
                     required
                   />
+                  {errors.confirm && <p className="text-sm text-red-600 mt-1">{errors.confirm}</p>}
                 </div>
               )}
 

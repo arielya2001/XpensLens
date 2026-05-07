@@ -9,9 +9,11 @@ class ExpenseService:
         self._repository = repository
 
     def create_expense(self, payload: ExpenseCreateRequest) -> ExpenseResponse:
-        # TODO: add validation, AI extraction enrichment, and policy checks.
-        raise NotImplementedError
+        expense = self._repository.create(payload)
+        return ExpenseResponse.model_validate(expense)
 
     def get_expense(self, expense_id: UUID) -> ExpenseResponse:
-        # TODO: fetch expense and map domain errors to API errors.
-        raise NotImplementedError
+        expense = self._repository.get_by_id(expense_id)
+        if expense is None:
+            raise ValueError("Expense not found")
+        return ExpenseResponse.model_validate(expense)

@@ -28,7 +28,11 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     } catch {
       detail = undefined;
     }
-    throw new ApiError(`Request failed with status ${response.status}`, response.status, detail);
+    throw new ApiError(
+      detail ? `Request failed with status ${response.status}: ${detail}` : `Request failed with status ${response.status}`,
+      response.status,
+      detail,
+    );
   }
 
   return (await response.json()) as T;
