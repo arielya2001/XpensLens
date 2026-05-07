@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Language, translations, TranslationKey } from '@/i18n/translations';
 
 export type UserRole = 'employee' | 'admin';

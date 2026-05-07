@@ -1,6 +1,6 @@
-import { DollarSign, Clock, Circle as XCircle, CircleCheck as CheckCircle, TrendingUp, Plus } from 'lucide-react';
+import { Clock, Circle as XCircle, CircleCheck as CheckCircle, TrendingUp, Plus } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { getEmployeeSummary, getExpensesForEmployee, mockExpenses } from '@/data/mockData';
+import { getEmployeeSummary, getExpensesForEmployee } from '@/data/mockData';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

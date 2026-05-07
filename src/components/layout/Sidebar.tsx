@@ -1,4 +1,4 @@
-import { LayoutDashboard, Receipt, Upload, Users, Settings, TriangleAlert as AlertTriangle, Shield, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Receipt, Users, Settings, TriangleAlert as AlertTriangle, Shield, ChevronRight } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';

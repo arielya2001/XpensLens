@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Download, ChevronDown, ChevronRight, CircleCheck as CheckCircle, Circle as XCircle, Eye } from 'lucide-react';
+import { Search, Download, ChevronRight, CircleCheck as CheckCircle, Circle as XCircle, Eye } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { mockExpenses, Expense } from '@/data/mockData';
 import { StatusBadge } from '@/components/shared/StatusBadge';

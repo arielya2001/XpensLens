@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { TriangleAlert as AlertTriangle, CircleCheck as CheckCircle, Circle as XCircle, Eye, ZoomIn } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { getFlaggedExpenses, Expense } from '@/data/mockData';
+import { getFlaggedExpenses } from '@/data/mockData';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';

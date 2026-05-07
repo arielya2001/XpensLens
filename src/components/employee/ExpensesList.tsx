@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Search, Filter, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { getExpensesForEmployee, Expense, ExpenseStatus } from '@/data/mockData';
+import { getExpensesForEmployee } from '@/data/mockData';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
