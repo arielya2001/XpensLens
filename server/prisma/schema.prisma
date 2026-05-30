@@ -1,0 +1,63 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  EMPLOYEE
+  ADMIN
+}
+
+enum ExpenseCategory {
+  TRAVEL
+  MEALS
+  OFFICE_SUPPLIES
+  ACCOMMODATION
+  SOFTWARE
+  ENTERTAINMENT
+  OTHER
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         Role      @default(EMPLOYEE)
+  department   String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  expenses     Expense[]
+
+  @@map("users")
+}
+
+model Expense {
+  id         String          @id @default(uuid())
+  userId     String          @map("user_id")
+  user       User            @relation(fields: [userId], references: [id])
+  amount     Float
+  currency   String          @default("USD")
+  date       DateTime
+  merchant   String
+  category   ExpenseCategory
+  status     ExpenseStatus   @default(PENDING)
+  notes      String?
+  receiptUrl String?         @map("receipt_url")
+  flagReason String?         @map("flag_reason")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  @@map("expenses")
+}

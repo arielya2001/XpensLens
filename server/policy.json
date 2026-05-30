@@ -1,0 +1,65 @@
+[
+  {
+    "id": "rule1",
+    "category": "MEALS",
+    "maxAmount": 20,
+    "blocked": false,
+    "requireReceipt": true,
+    "enabled": true,
+    "description": "Maximum daily meal allowance"
+  },
+  {
+    "id": "rule2",
+    "category": "TRAVEL",
+    "maxAmount": 1500,
+    "blocked": false,
+    "requireReceipt": true,
+    "enabled": true,
+    "description": "Maximum per-trip travel expense"
+  },
+  {
+    "id": "rule3",
+    "category": "ACCOMMODATION",
+    "maxAmount": 1000,
+    "blocked": false,
+    "requireReceipt": true,
+    "enabled": true,
+    "description": "Maximum nightly hotel rate"
+  },
+  {
+    "id": "rule4",
+    "category": "OFFICE_SUPPLIES",
+    "maxAmount": 700,
+    "blocked": false,
+    "requireReceipt": false,
+    "enabled": true,
+    "description": "Office supplies per purchase"
+  },
+  {
+    "id": "rule5",
+    "category": "SOFTWARE",
+    "maxAmount": 3500,
+    "blocked": false,
+    "requireReceipt": true,
+    "enabled": true,
+    "description": "Software license per purchase"
+  },
+  {
+    "id": "rule6",
+    "category": "ENTERTAINMENT",
+    "maxAmount": 0,
+    "blocked": true,
+    "requireReceipt": true,
+    "enabled": true,
+    "description": "Entertainment requires manager approval"
+  },
+  {
+    "id": "rule1780144680208",
+    "category": "OFFICE_SUPPLIES",
+    "maxAmount": 100,
+    "blocked": true,
+    "requireReceipt": true,
+    "enabled": true,
+    "description": "Office Supplies policy rule"
+  }
+]
