@@ -197,6 +197,20 @@ export function ManualReviewInbox() {
 
                   {/* Right: review actions */}
                   <div className="space-y-4">
+                    {expense.receiptMetadata && Object.keys(expense.receiptMetadata).length > 0 && (
+                      <div className="bg-violet-50 dark:bg-violet-950/20 rounded-xl p-3 space-y-2 text-sm border border-violet-200 dark:border-violet-800">
+                        <p className="text-xs font-semibold text-violet-600 dark:text-violet-400 uppercase tracking-wider">
+                          Extra data extracted by AI (not shown to employee)
+                        </p>
+                        {Object.entries(expense.receiptMetadata).map(([key, value]) => (
+                          <div key={key} className="flex justify-between gap-2">
+                            <span className="text-slate-400 shrink-0 capitalize">{key.replace(/_/g, ' ')}</span>
+                            <span className="font-medium text-slate-900 dark:text-white text-end">{String(value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div>
                       <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                         {t('reviewOverride')}

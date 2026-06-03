@@ -44,20 +44,32 @@ model User {
 }
 
 model Expense {
-  id         String          @id @default(uuid())
-  userId     String          @map("user_id")
-  user       User            @relation(fields: [userId], references: [id])
-  amount     Float
-  currency   String          @default("USD")
-  date       DateTime
-  merchant   String
-  category   ExpenseCategory
-  status     ExpenseStatus   @default(PENDING)
-  notes      String?
-  receiptUrl String?         @map("receipt_url")
-  flagReason String?         @map("flag_reason")
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
+  id              String          @id @default(uuid())
+  userId          String          @map("user_id")
+  user            User            @relation(fields: [userId], references: [id])
+  amount          Float
+  currency        String          @default("USD")
+  date            DateTime
+  merchant        String
+  category        ExpenseCategory
+  status          ExpenseStatus   @default(PENDING)
+  notes           String?
+  receiptUrl      String?         @map("receipt_url")
+  flagReason      String?         @map("flag_reason")
+  receiptMetadata Json?           @map("receipt_metadata")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
   @@map("expenses")
+}
+
+model Policy {
+  id         String   @id @default(uuid())
+  sourceText String   @map("source_text")
+  rules      Json
+  createdBy  String   @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("policies")
 }

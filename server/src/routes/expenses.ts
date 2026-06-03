@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { ExpenseCategory, ExpenseStatus } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { extractReceiptData } from '../services/vision.service';
-import { evaluatePolicy } from '../services/policy.service';
+import { getCurrentPolicy, evaluateExpensePolicy } from '../services/policy.service';
 import { uploadReceipt } from '../services/storage.service';
 import prisma from '../lib/prisma';
 
@@ -19,6 +19,7 @@ const CreateExpenseSchema = z.object({
   merchant: z.string().min(1),
   category: z.nativeEnum(ExpenseCategory),
   notes: z.string().optional(),
+  receiptMetadata: z.string().optional(), // JSON string from scan step
 });
 
 const UpdateExpenseSchema = z.object({
@@ -33,8 +34,8 @@ router.post('/scan', requireAuth, uploadMemory.single('receipt'), async (req: Re
   }
 
   try {
-    const data = await extractReceiptData(req.file.buffer, req.file.mimetype);
-    res.json(data);
+    const { standard, receiptMetadata } = await extractReceiptData(req.file.buffer, req.file.mimetype);
+    res.json({ ...standard, receiptMetadata });
   } catch (err) {
     console.error('Vision extraction failed:', err);
     res.status(502).json({ error: 'Failed to extract receipt data' });
@@ -48,10 +49,21 @@ router.post('/', requireAuth, uploadMemory.single('receipt'), async (req: Reques
     return;
   }
 
-  const { status, flagReason } = evaluatePolicy({
-    amount: parsed.data.amount,
-    category: parsed.data.category,
-  });
+  const receiptMetadata = parsed.data.receiptMetadata
+    ? (JSON.parse(parsed.data.receiptMetadata) as Record<string, unknown>)
+    : {};
+
+  const policyData = await getCurrentPolicy();
+  const { status, flagReason } = await evaluateExpensePolicy(
+    {
+      amount: parsed.data.amount,
+      category: parsed.data.category,
+      merchant: parsed.data.merchant,
+      notes: parsed.data.notes,
+    },
+    receiptMetadata,
+    policyData
+  );
 
   let receiptUrl: string | null = null;
   if (req.file) {
@@ -60,12 +72,17 @@ router.post('/', requireAuth, uploadMemory.single('receipt'), async (req: Reques
 
   const expense = await prisma.expense.create({
     data: {
-      ...parsed.data,
+      amount: parsed.data.amount,
+      currency: parsed.data.currency,
       date: new Date(parsed.data.date),
+      merchant: parsed.data.merchant,
+      category: parsed.data.category,
+      notes: parsed.data.notes,
       userId: req.user!.id,
       status,
       flagReason,
       receiptUrl,
+      receiptMetadata: Object.keys(receiptMetadata).length > 0 ? receiptMetadata : undefined,
     },
     include: { user: { select: { id: true, name: true, email: true, department: true } } },
   });
@@ -87,7 +104,16 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     orderBy: { createdAt: 'desc' },
   });
 
-  res.json(expenses);
+  // Strip receiptMetadata for employees
+  const result = expenses.map(e => {
+    if (req.user!.role === 'EMPLOYEE') {
+      const { receiptMetadata: _m, ...rest } = e;
+      return rest;
+    }
+    return e;
+  });
+
+  res.json(result);
 });
 
 router.get('/:id', requireAuth, async (req: Request, res: Response) => {
@@ -103,6 +129,12 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 
   if (req.user!.role === 'EMPLOYEE' && expense.userId !== req.user!.id) {
     res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
+
+  if (req.user!.role === 'EMPLOYEE') {
+    const { receiptMetadata: _m, ...rest } = expense;
+    res.json(rest);
     return;
   }
 

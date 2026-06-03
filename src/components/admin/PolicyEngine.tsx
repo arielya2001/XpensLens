@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Plus, Save, Shield, Trash2, CircleCheck as CheckCircle } from 'lucide-react';
+import { Plus, Save, Shield, Trash2, CircleCheck as CheckCircle, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
-import { getPolicyRules, savePolicyRules, PolicyRule } from '@/lib/policy-api';
+import { getPolicyRules, savePolicyRules, parsePolicy, PolicyRule, PolicyData } from '@/lib/policy-api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -22,15 +23,37 @@ const CATEGORY_DISPLAY: Record<string, string> = {
 export function PolicyEngine() {
   const { t } = useApp();
   const [rules, setRules] = useState<PolicyRule[]>([]);
+  const [softRules, setSoftRules] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [newRule, setNewRule] = useState<Partial<PolicyRule>>({
     category: 'MEALS', maxAmount: 100, blocked: false, requireReceipt: true, enabled: true, description: '',
   });
 
+  // NLP state
+  const [nlpText, setNlpText] = useState('');
+  const [nlpLoading, setNlpLoading] = useState(false);
+  const [showNlp, setShowNlp] = useState(false);
+
   useEffect(() => {
-    getPolicyRules().then(setRules).catch(() => {});
+    getPolicyRules().then((data: PolicyData) => {
+      setRules(data.rules ?? []);
+      setSoftRules(data.softRules ?? []);
+      if (data.sourceText) setNlpText(data.sourceText);
+    }).catch(() => {});
   }, []);
+
+  async function handleParse() {
+    if (!nlpText.trim()) return;
+    setNlpLoading(true);
+    try {
+      const data = await parsePolicy(nlpText);
+      setRules(data.rules ?? []);
+      setSoftRules(data.softRules ?? []);
+    } finally {
+      setNlpLoading(false);
+    }
+  }
 
   function toggleRule(id: string) {
     setRules(prev => prev.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));
@@ -87,6 +110,56 @@ export function PolicyEngine() {
           </Button>
         </div>
       </div>
+
+      {/* NLP Policy Input */}
+      <Card className="border-2 border-violet-200 dark:border-violet-800 shadow-sm bg-white dark:bg-slate-900">
+        <CardHeader className="pb-2 pt-4 px-5">
+          <button
+            className="flex items-center justify-between w-full text-left"
+            onClick={() => setShowNlp(v => !v)}
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-violet-600" />
+              <CardTitle className="text-base font-semibold text-slate-900 dark:text-white">Define Policy with AI</CardTitle>
+            </div>
+            {showNlp ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+          </button>
+          <CardDescription className="text-sm text-slate-500 mt-1">
+            Describe your company policy in plain language — AI will extract the rules
+          </CardDescription>
+        </CardHeader>
+        {showNlp && (
+          <CardContent className="px-5 pb-5 space-y-3">
+            <Textarea
+              value={nlpText}
+              onChange={e => setNlpText(e.target.value)}
+              placeholder={'Example: Travel expenses up to ₪500 are allowed. Meals up to ₪150 per receipt, receipt required. Entertainment is blocked and always requires manager approval. Flag any expense that seems unrelated to work.'}
+              rows={5}
+              className="resize-none text-sm"
+            />
+            <Button
+              onClick={handleParse}
+              disabled={nlpLoading || !nlpText.trim()}
+              className="gap-2 bg-violet-600 hover:bg-violet-700 text-white"
+            >
+              <Sparkles className="h-4 w-4" />
+              {nlpLoading ? 'Parsing...' : 'Parse with AI'}
+            </Button>
+            {softRules.length > 0 && (
+              <div className="mt-3 space-y-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Soft Rules (AI-judged per receipt)</p>
+                <ul className="space-y-1">
+                  {softRules.map((r, i) => (
+                    <li key={i} className="text-sm text-slate-600 dark:text-slate-300 flex gap-2">
+                      <span className="text-violet-500 shrink-0">•</span>{r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
 
       {showAdd && (
         <Card className="border-2 border-blue-200 dark:border-blue-800 shadow-sm bg-white dark:bg-slate-900 animate-in slide-in-from-top-2 duration-200">

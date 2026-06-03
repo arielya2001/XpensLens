@@ -31,6 +31,7 @@ export interface Expense {
   notes: string | null;
   receiptUrl: string | null;
   flagReason: string | null;
+  receiptMetadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +43,7 @@ export interface CreateExpenseRequest {
   merchant: string;
   category: ExpenseCategory;
   notes?: string;
+  receiptMetadata?: Record<string, unknown>;
 }
 
 export interface ScannedReceiptData {
@@ -51,6 +53,7 @@ export interface ScannedReceiptData {
   merchant?: string;
   category?: ExpenseCategory;
   notes?: string;
+  receiptMetadata?: Record<string, unknown>;
 }
 
 export function scanReceipt(file: File): Promise<ScannedReceiptData> {
@@ -70,6 +73,7 @@ export function createExpense(payload: CreateExpenseRequest, file?: File): Promi
   formData.append('merchant', payload.merchant);
   formData.append('category', payload.category);
   if (payload.notes) formData.append('notes', payload.notes);
+  if (payload.receiptMetadata) formData.append('receiptMetadata', JSON.stringify(payload.receiptMetadata));
   if (file) formData.append('receipt', file);
   return apiRequest<Expense>('/expenses', { method: 'POST', body: formData });
 }
