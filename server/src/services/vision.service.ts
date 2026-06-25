@@ -5,7 +5,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-export const VISION_MODEL = 'liquid/lfm-2.5-1.2b-instruct:free';
+export const VISION_MODEL = 'openai/gpt-oss-20b:free';
 
 const EXTRACTION_PROMPT = `You are a receipt data extraction assistant.
 Analyze the following receipt text and return ONLY a valid JSON object with these fields:
@@ -34,37 +34,46 @@ export interface FullExtractionResult {
   receiptMetadata: Record<string, unknown>;
 }
 
-async function extractTextWithOcr(imageBuffer: Buffer, mimeType: string): Promise<string> {
-  const base64Image = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+async function extractTextWithOcr(imageBuffer: Buffer, _mimeType: string): Promise<string> {
+  const base64Image = imageBuffer.toString('base64');
+  const apiKey = process.env.GOOGLE_VISION_API_KEY;
 
-  const form = new URLSearchParams();
-  form.append('apikey', process.env.OCR_SPACE_API_KEY ?? 'helloworld');
-  form.append('base64Image', base64Image);
-  form.append('isOverlayRequired', 'false');
+  if (!apiKey) {
+    throw new Error('GOOGLE_VISION_API_KEY is not set');
+  }
 
-  const response = await fetch('https://api.ocr.space/parse/image', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: form.toString(),
-  });
+  const response = await fetch(
+    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: { content: base64Image },
+            features: [{ type: 'TEXT_DETECTION' }],
+          },
+        ],
+      }),
+    }
+  );
 
   if (!response.ok) {
-    throw new Error(`OCR.Space request failed: ${response.status}`);
+    throw new Error(`Google Vision request failed: ${response.status}`);
   }
 
   const json = (await response.json()) as {
-    ParsedResults?: { ParsedText: string }[];
-    IsErroredOnProcessing?: boolean;
-    ErrorMessage?: string;
+    responses?: { fullTextAnnotation?: { text: string }; error?: { message: string } }[];
   };
 
-  if (json.IsErroredOnProcessing) {
-    throw new Error(`OCR.Space error: ${json.ErrorMessage}`);
+  const result = json.responses?.[0];
+  if (result?.error) {
+    throw new Error(`Google Vision error: ${result.error.message}`);
   }
 
-  const text = json.ParsedResults?.[0]?.ParsedText?.trim() ?? '';
+  const text = result?.fullTextAnnotation?.text?.trim() ?? '';
   if (!text) {
-    throw new Error('OCR.Space returned empty text');
+    throw new Error('Google Vision returned empty text');
   }
 
   console.log('OCR raw text:', text);
