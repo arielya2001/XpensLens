@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { registerUser, loginUser, getUserById } from '../services/auth.service';
+import { registerUser, loginUser, getUserById, updateUser, updatePassword } from '../services/auth.service';
 import { requireAuth } from '../middleware/auth';
 
 const router = Router();
@@ -62,6 +62,39 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
     return;
   }
   res.json({ id: user.id, name: user.name, email: user.email, role: user.role, department: user.department });
+});
+
+const UpdateProfileSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  department: z.string().optional(),
+});
+
+router.put('/me', requireAuth, async (req: Request, res: Response) => {
+  const parsed = UpdateProfileSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  try {
+    const user = await updateUser(req.user!.id, parsed.data);
+    res.json({ id: user.id, name: user.name, email: user.email, role: user.role, department: user.department });
+  } catch (err: unknown) {
+    res.status(409).json({ error: err instanceof Error ? err.message : 'Update failed' });
+  }
+});
+
+const UpdatePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
+});
+
+router.put('/me/password', requireAuth, async (req: Request, res: Response) => {
+  const parsed = UpdatePasswordSchema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.flatten() }); return; }
+  try {
+    await updatePassword(req.user!.id, parsed.data.currentPassword, parsed.data.newPassword);
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Password update failed' });
+  }
 });
 
 export default router;

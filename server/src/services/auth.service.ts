@@ -41,6 +41,23 @@ export async function getUserById(id: string) {
   return prisma.user.findUnique({ where: { id } });
 }
 
+export async function updateUser(id: string, data: { name?: string; email?: string; department?: string }) {
+  if (data.email) {
+    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    if (existing && existing.id !== id) throw new Error('Email already in use');
+  }
+  return prisma.user.update({ where: { id }, data });
+}
+
+export async function updatePassword(id: string, currentPassword: string, newPassword: string) {
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw new Error('User not found');
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) throw new Error('Current password is incorrect');
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({ where: { id }, data: { passwordHash } });
+}
+
 function signToken(user: { id: string; email: string; role: 'EMPLOYEE' | 'ADMIN' }): string {
   const payload: JwtPayload = { id: user.id, email: user.email, role: user.role };
   return jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '7d' });

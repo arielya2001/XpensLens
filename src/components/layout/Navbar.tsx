@@ -23,7 +23,9 @@ export function Navbar({ onMenuToggle, sidebarOpen }: NavbarProps) {
 
   useEffect(() => {
     if (!user) return;
-    listExpenses({ status: 'FLAGGED' })
+    if (localStorage.getItem('notif_enabled') === 'false') return;
+    const status = user.role === 'admin' ? 'FLAGGED' : 'REJECTED';
+    listExpenses({ status })
       .then(data => { setFlagged(data); setUnreadCount(data.length); })
       .catch(() => {});
   }, [user]);
@@ -34,7 +36,7 @@ export function Navbar({ onMenuToggle, sidebarOpen }: NavbarProps) {
         <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuToggle} aria-label="Toggle menu">
           {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 md:hidden">
           <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-sm">
             <span className="text-white font-bold text-sm">X</span>
           </div>
@@ -70,7 +72,9 @@ export function Navbar({ onMenuToggle, sidebarOpen }: NavbarProps) {
           <DropdownMenuContent align="end" className="w-72">
             <div className="px-3 py-2 font-semibold text-sm text-slate-700 dark:text-slate-200">
               {flagged.length > 0
-                ? `${flagged.length} flagged expense${flagged.length > 1 ? 's' : ''} need review`
+                ? user?.role === 'admin'
+                  ? `${flagged.length} flagged expense${flagged.length > 1 ? 's' : ''} need review`
+                  : `${flagged.length} expense${flagged.length > 1 ? 's' : ''} rejected`
                 : 'No new notifications'}
             </div>
             <DropdownMenuSeparator />

@@ -57,6 +57,7 @@ model Expense {
   receiptUrl      String?         @map("receipt_url")
   flagReason      String?         @map("flag_reason")
   receiptMetadata Json?           @map("receipt_metadata")
+  time            String?
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 

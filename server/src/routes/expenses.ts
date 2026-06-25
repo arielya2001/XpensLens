@@ -1,12 +1,13 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { ExpenseCategory, ExpenseStatus } from '@prisma/client';
+import { Prisma, ExpenseCategory, ExpenseStatus } from '@prisma/client';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { extractReceiptData } from '../services/vision.service';
 import { getCurrentPolicy, evaluateExpensePolicy } from '../services/policy.service';
 import { uploadReceipt } from '../services/storage.service';
 import prisma from '../lib/prisma';
+import { cacheGet, cacheSet, cacheDeleteByPrefix } from '../lib/cache';
 
 const router = Router();
 
@@ -16,10 +17,11 @@ const CreateExpenseSchema = z.object({
   amount: z.coerce.number().positive(),
   currency: z.string().length(3),
   date: z.string(),
+  time: z.string().optional(),
   merchant: z.string().min(1),
   category: z.nativeEnum(ExpenseCategory),
   notes: z.string().optional(),
-  receiptMetadata: z.string().optional(), // JSON string from scan step
+  receiptMetadata: z.string().optional(),
 });
 
 const UpdateExpenseSchema = z.object({
@@ -54,12 +56,22 @@ router.post('/', requireAuth, uploadMemory.single('receipt'), async (req: Reques
     : {};
 
   const policyData = await getCurrentPolicy();
+
+  if (policyData.allowedCurrencies && policyData.allowedCurrencies.length > 0) {
+    if (!policyData.allowedCurrencies.includes(parsed.data.currency)) {
+      res.status(400).json({ error: `Unknown currency: ${parsed.data.currency}. Allowed: ${policyData.allowedCurrencies.join(', ')}` });
+      return;
+    }
+  }
+
   const { status, flagReason } = await evaluateExpensePolicy(
     {
       amount: parsed.data.amount,
       category: parsed.data.category,
       merchant: parsed.data.merchant,
       notes: parsed.data.notes,
+      time: parsed.data.time,
+      date: parsed.data.date,
     },
     receiptMetadata,
     policyData
@@ -78,20 +90,25 @@ router.post('/', requireAuth, uploadMemory.single('receipt'), async (req: Reques
       merchant: parsed.data.merchant,
       category: parsed.data.category,
       notes: parsed.data.notes,
+      time: parsed.data.time,
       userId: req.user!.id,
       status,
       flagReason,
       receiptUrl,
-      receiptMetadata: Object.keys(receiptMetadata).length > 0 ? receiptMetadata : undefined,
+      receiptMetadata: Object.keys(receiptMetadata).length > 0 ? receiptMetadata as Prisma.InputJsonValue : undefined,
     },
     include: { user: { select: { id: true, name: true, email: true, department: true } } },
   });
 
+  cacheDeleteByPrefix('expenses:');
   res.status(201).json(expense);
 });
 
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   const { status, category } = req.query;
+  const cacheKey = `expenses:${req.user!.id}:${req.user!.role}:${status ?? ''}:${category ?? ''}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) { res.json(cached); return; }
 
   const where: Record<string, unknown> = {};
   if (req.user!.role === 'EMPLOYEE') where.userId = req.user!.id;
@@ -104,7 +121,6 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     orderBy: { createdAt: 'desc' },
   });
 
-  // Strip receiptMetadata for employees
   const result = expenses.map(e => {
     if (req.user!.role === 'EMPLOYEE') {
       const { receiptMetadata: _m, ...rest } = e;
@@ -113,6 +129,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     return e;
   });
 
+  cacheSet(cacheKey, result, 10_000);
   res.json(result);
 });
 
@@ -154,15 +171,21 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
     return;
   }
 
+  const adminNote = parsed.data.notes?.trim();
+  const updatedFlagReason = parsed.data.status === 'REJECTED' && adminNote
+    ? `${expense.flagReason ? expense.flagReason + ' | ' : ''}Note from admin: ${adminNote}`
+    : expense.flagReason;
+
   const updated = await prisma.expense.update({
     where: { id: req.params.id },
     data: {
       status: parsed.data.status,
-      notes: parsed.data.notes ?? expense.notes,
+      flagReason: updatedFlagReason,
     },
     include: { user: { select: { id: true, name: true, email: true, department: true } } },
   });
 
+  cacheDeleteByPrefix('expenses:');
   res.json(updated);
 });
 

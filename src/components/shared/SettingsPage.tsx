@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Moon, Sun, Globe, Bell, Shield, User } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,10 +8,57 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { apiRequest } from '@/lib/api-client';
 
 export function SettingsPage() {
-  const { t, theme, toggleTheme, language, toggleLanguage, user } = useApp();
+  const { t, theme, toggleTheme, language, toggleLanguage, user, setUser } = useApp();
   const initials = user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+
+  const [name, setName] = useState(user?.name ?? '');
+  const [email, setEmail] = useState(user?.email ?? '');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function handleProfileSave() {
+    setProfileSaving(true);
+    setProfileMsg(null);
+    try {
+      const updated = await apiRequest<{ id: string; name: string; email: string; role: string; department: string | null }>('/auth/me', {
+        method: 'PUT',
+        body: JSON.stringify({ name, email }),
+      });
+      setUser?.({ ...user!, name: updated.name, email: updated.email });
+      setProfileMsg({ ok: true, text: t('success') });
+    } catch (err) {
+      setProfileMsg({ ok: false, text: err instanceof Error ? err.message : t('error') });
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  async function handlePasswordSave() {
+    if (!currentPassword || !newPassword) return;
+    setPasswordSaving(true);
+    setPasswordMsg(null);
+    try {
+      await apiRequest('/auth/me/password', {
+        method: 'PUT',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setPasswordMsg({ ok: true, text: t('success') });
+    } catch (err) {
+      setPasswordMsg({ ok: false, text: err instanceof Error ? err.message : t('error') });
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -44,14 +92,19 @@ export function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">{t('fullName')}</Label>
-              <Input defaultValue={user?.name} className="h-10" />
+              <Input value={name} onChange={e => setName(e.target.value)} className="h-10" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">{t('email')}</Label>
-              <Input defaultValue={user?.email} type="email" className="h-10" />
+              <Input value={email} onChange={e => setEmail(e.target.value)} type="email" className="h-10" />
             </div>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white">{t('save')}</Button>
+          {profileMsg && (
+            <p className={`text-sm ${profileMsg.ok ? 'text-emerald-600' : 'text-red-500'}`}>{profileMsg.text}</p>
+          )}
+          <Button onClick={handleProfileSave} disabled={profileSaving} className="bg-blue-600 hover:bg-blue-700 text-white">
+            {profileSaving ? t('loading') : t('save')}
+          </Button>
         </CardContent>
       </Card>
 
@@ -100,20 +153,21 @@ export function SettingsPage() {
             <CardTitle className="text-base font-semibold">Notifications</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="px-5 pb-5 space-y-4">
-          {[
-            { label: 'Expense approved', sub: 'Get notified when your expense is approved', default: true },
-            { label: 'Expense rejected', sub: 'Get notified when your expense is rejected', default: true },
-            { label: 'Policy reminders', sub: 'Receive periodic reminders about expense policies', default: false },
-          ].map(item => (
-            <div key={item.label} className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.label}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{item.sub}</p>
-              </div>
-              <Switch defaultChecked={item.default} />
+        <CardContent className="px-5 pb-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Enable notifications</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {user?.role === 'admin'
+                  ? 'Get notified when a new receipt violates policy rules'
+                  : 'Get notified when your expense is rejected'}
+              </p>
             </div>
-          ))}
+            <Switch
+              defaultChecked={localStorage.getItem('notif_enabled') !== 'false'}
+              onCheckedChange={v => localStorage.setItem('notif_enabled', String(v))}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -127,13 +181,18 @@ export function SettingsPage() {
         <CardContent className="px-5 pb-5 space-y-3">
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Current Password</Label>
-            <Input type="password" placeholder="••••••••" className="h-10" />
+            <Input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="••••••••" className="h-10" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">New Password</Label>
-            <Input type="password" placeholder="••••••••" className="h-10" />
+            <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" className="h-10" />
           </div>
-          <Button variant="outline">{t('save')}</Button>
+          {passwordMsg && (
+            <p className={`text-sm ${passwordMsg.ok ? 'text-emerald-600' : 'text-red-500'}`}>{passwordMsg.text}</p>
+          )}
+          <Button variant="outline" onClick={handlePasswordSave} disabled={passwordSaving || !currentPassword || !newPassword}>
+            {passwordSaving ? t('loading') : t('save')}
+          </Button>
         </CardContent>
       </Card>
     </div>

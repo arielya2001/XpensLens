@@ -27,7 +27,7 @@ export function ExpensesList({ onAddExpense, refreshKey }: ExpensesListProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const { year, month, prev, next, inMonth, isCurrentMonth } = useMonthFilter();
+  const { year, month, prev, next, inMonth, isCurrentMonth, goTo } = useMonthFilter();
 
   useEffect(() => {
     listExpenses()
@@ -39,8 +39,14 @@ export function ExpensesList({ onAddExpense, refreshKey }: ExpensesListProps) {
 
   const filtered = monthExpenses
     .filter(e => {
-      const matchSearch = e.merchant.toLowerCase().includes(search.toLowerCase()) ||
-        e.category.toLowerCase().includes(search.toLowerCase());
+      const q = search.toLowerCase();
+      const matchSearch = !q ||
+        e.merchant.toLowerCase().includes(q) ||
+        e.category.toLowerCase().includes(q) ||
+        e.amount.toString().includes(q) ||
+        e.currency.toLowerCase().includes(q) ||
+        (e.notes ?? '').toLowerCase().includes(q) ||
+        new Date(e.date).toLocaleDateString().includes(q);
       const matchStatus = statusFilter === 'all' || e.status.toLowerCase() === statusFilter;
       const matchCat = categoryFilter === 'all' || e.category === categoryFilter;
       return matchSearch && matchStatus && matchCat;
@@ -76,7 +82,7 @@ export function ExpensesList({ onAddExpense, refreshKey }: ExpensesListProps) {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <MonthPicker year={year} month={month} onPrev={prev} onNext={next} isCurrentMonth={isCurrentMonth} />
+          <MonthPicker year={year} month={month} onPrev={prev} onNext={next} isCurrentMonth={isCurrentMonth} onSelect={goTo} />
           <Button
             onClick={onAddExpense}
             className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200 dark:shadow-none gap-2"
@@ -102,7 +108,7 @@ export function ExpensesList({ onAddExpense, refreshKey }: ExpensesListProps) {
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-40 h-9"><SelectValue placeholder={t('filterStatus')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">{t('filterAllStatus')}</SelectItem>
                 <SelectItem value="approved">{t('approved')}</SelectItem>
                 <SelectItem value="pending">{t('pending')}</SelectItem>
                 <SelectItem value="rejected">{t('rejected')}</SelectItem>
@@ -112,7 +118,7 @@ export function ExpensesList({ onAddExpense, refreshKey }: ExpensesListProps) {
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="w-full sm:w-44 h-9"><SelectValue placeholder={t('filterCategory')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">{t('filterAllCategories')}</SelectItem>
                 {categories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -152,14 +158,15 @@ export function ExpensesList({ onAddExpense, refreshKey }: ExpensesListProps) {
                 {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="text-center py-12 text-slate-400 dark:text-slate-500">
-                      No expenses this month
+                      {t('noExpensesMonth')}
                     </td>
                   </tr>
                 ) : (
                   filtered.map(expense => (
                     <tr key={expense.id} className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="px-5 py-3.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                        {new Date(expense.date).toLocaleDateString()}
+                        <span>{new Date(expense.date).toLocaleDateString()}</span>
+                        {expense.time && <span className="text-xs text-slate-400 ms-1">{expense.time}</span>}
                       </td>
                       <td className="px-5 py-3.5">
                         <p className="font-medium text-slate-900 dark:text-white">{expense.merchant}</p>
@@ -175,6 +182,9 @@ export function ExpensesList({ onAddExpense, refreshKey }: ExpensesListProps) {
                       </td>
                       <td className="px-5 py-3.5">
                         <StatusBadge status={expense.status} />
+                        {(expense.status === 'REJECTED' || expense.status === 'FLAGGED') && expense.flagReason && (
+                          <p className="text-xs text-red-500 dark:text-red-400 mt-1 max-w-[180px]">{expense.flagReason}</p>
+                        )}
                       </td>
                     </tr>
                   ))

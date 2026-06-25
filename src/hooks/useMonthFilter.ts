@@ -27,5 +27,12 @@ export function useMonthFilter() {
     return year === n.getFullYear() && month === n.getMonth();
   })();
 
-  return { year, month, prev, next, inMonth, isCurrentMonth };
+  function goTo(y: number, m: number) {
+    const n = new Date();
+    if (y > n.getFullYear() || (y === n.getFullYear() && m > n.getMonth())) return;
+    setYear(y);
+    setMonth(m);
+  }
+
+  return { year, month, prev, next, inMonth, isCurrentMonth, goTo };
 }

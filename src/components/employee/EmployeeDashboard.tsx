@@ -47,7 +47,7 @@ const categoryColors: Record<string, string> = {
 export function EmployeeDashboard({ onAddExpense, onViewAll, refreshKey }: EmployeeDashboardProps) {
   const { t, user } = useApp();
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
-  const { year, month, prev, next, inMonth, isCurrentMonth } = useMonthFilter();
+  const { year, month, prev, next, inMonth, isCurrentMonth, goTo } = useMonthFilter();
 
   useEffect(() => {
     listExpenses().then(setAllExpenses);
@@ -93,7 +93,7 @@ export function EmployeeDashboard({ onAddExpense, onViewAll, refreshKey }: Emplo
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <MonthPicker year={year} month={month} onPrev={prev} onNext={next} isCurrentMonth={isCurrentMonth} />
+          <MonthPicker year={year} month={month} onPrev={prev} onNext={next} isCurrentMonth={isCurrentMonth} onSelect={goTo} />
           <Button
             onClick={onAddExpense}
             className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-200 dark:shadow-none gap-2"

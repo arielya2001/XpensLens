@@ -64,15 +64,15 @@ export function Sidebar({ open, onClose }: SidebarProps) {
     <>
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
       <aside
         className={cn(
-          'fixed top-16 bottom-0 z-40 w-64 bg-white dark:bg-slate-900 border-e border-slate-200 dark:border-slate-700 flex flex-col transition-transform duration-300 ease-in-out',
-          'md:translate-x-0 md:static md:top-0 md:h-full',
+          'fixed inset-y-0 start-0 z-50 w-64 bg-white dark:bg-slate-900 border-e border-slate-200 dark:border-slate-700 flex flex-col transition-transform duration-300 ease-in-out',
+          'md:relative md:translate-x-0 md:h-screen md:shrink-0',
           open ? 'translate-x-0' : dir === 'rtl' ? 'translate-x-full' : '-translate-x-full',
         )}
       >

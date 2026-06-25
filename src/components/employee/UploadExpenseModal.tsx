@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
-import { Upload, Camera, Image, X, CircleCheck as CheckCircle, TriangleAlert as AlertTriangle, Sparkles, FileText } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { Upload, Camera, Image, CircleCheck as CheckCircle, TriangleAlert as AlertTriangle, Sparkles, FileText } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { scanReceipt, createExpense, ExpenseCategory } from '@/lib/expenses-api';
+import { getPolicyCurrencies } from '@/lib/policy-api';
 
 type UploadStep = 'upload' | 'scanning' | 'form' | 'success' | 'rejected';
 
@@ -21,7 +22,7 @@ interface UploadExpenseModalProps {
 const DISPLAY_CATEGORIES = ['Meals', 'Travel', 'Accommodation', 'Office Supplies', 'Software', 'Entertainment', 'Other'] as const;
 type DisplayCategory = typeof DISPLAY_CATEGORIES[number];
 
-const currencies = ['USD', 'EUR', 'GBP', 'ILS', 'JPY', 'CAD'];
+const ALL_CURRENCIES = ['USD', 'EUR', 'GBP', 'ILS', 'JPY', 'CAD', 'CHF'];
 
 const CATEGORY_MAP: Record<DisplayCategory, ExpenseCategory> = {
   Meals: 'MEALS',
@@ -47,6 +48,7 @@ const EMPTY_FORM = {
   amount: '',
   currency: 'ILS',
   date: new Date().toISOString().split('T')[0],
+  time: '',
   merchant: '',
   category: 'Meals' as DisplayCategory,
   notes: '',
@@ -60,10 +62,23 @@ export function UploadExpenseModal({ open, onClose, onSuccess }: UploadExpenseMo
   const fileRef = useRef<HTMLInputElement>(null);
   const currentFileRef = useRef<File | null>(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const originalFormRef = useRef({ ...EMPTY_FORM });
   const [scanProgress, setScanProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [flagReason, setFlagReason] = useState<string | null>(null);
+  const [currencies, setCurrencies] = useState<string[]>(ALL_CURRENCIES);
+
+  useEffect(() => {
+    if (!open) return;
+    getPolicyCurrencies().then(p => {
+      if (p.allowedCurrencies.length > 0) {
+        setCurrencies(p.allowedCurrencies);
+      } else {
+        setCurrencies(ALL_CURRENCIES);
+      }
+    }).catch(() => {});
+  }, [open]);
 
   function reset() {
     setStep('upload');
@@ -97,14 +112,17 @@ export function UploadExpenseModal({ open, onClose, onSuccess }: UploadExpenseMo
       clearInterval(progressInterval);
       setScanProgress(100);
 
-      setForm({
+      const extracted_form = {
         amount: extracted.amount?.toString() ?? '',
         currency: extracted.currency ?? 'ILS',
         date: extracted.date ?? new Date().toISOString().split('T')[0],
+        time: extracted.time ?? '',
         merchant: extracted.merchant ?? '',
-        category: (extracted.category && REVERSE_CATEGORY_MAP[extracted.category]) ?? 'Other',
+        category: (extracted.category && REVERSE_CATEGORY_MAP[extracted.category]) ?? 'Other' as DisplayCategory,
         notes: extracted.notes ?? '',
-      });
+      };
+      setForm(extracted_form);
+      originalFormRef.current = extracted_form;
     } catch {
       clearInterval(progressInterval);
       setScanProgress(100);
@@ -125,6 +143,10 @@ export function UploadExpenseModal({ open, onClose, onSuccess }: UploadExpenseMo
     if (file) handleFile(file);
   }
 
+  const editedFields = (Object.keys(form) as (keyof typeof form)[]).filter(
+    k => form[k] !== originalFormRef.current[k] && originalFormRef.current[k] !== ''
+  );
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
@@ -135,9 +157,11 @@ export function UploadExpenseModal({ open, onClose, onSuccess }: UploadExpenseMo
         amount: parseFloat(form.amount),
         currency: form.currency,
         date: form.date,
+        time: form.time || undefined,
         merchant: form.merchant,
         category: CATEGORY_MAP[form.category],
         notes: form.notes || undefined,
+        receiptMetadata: editedFields.length > 0 ? { manuallyEditedFields: editedFields } : undefined,
       }, currentFileRef.current ?? undefined);
 
       if (expense.status === 'REJECTED' || expense.status === 'FLAGGED') {
@@ -158,12 +182,7 @@ export function UploadExpenseModal({ open, onClose, onSuccess }: UploadExpenseMo
     <Dialog open={open} onOpenChange={v => !v && handleClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="px-6 pt-6 pb-0">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-bold">{t('uploadTitle')}</DialogTitle>
-            <Button variant="ghost" size="icon" onClick={handleClose} className="-mt-1">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <DialogTitle className="text-xl font-bold">{t('uploadTitle')}</DialogTitle>
           {step === 'form' && (
             <div className="flex items-center gap-2 mt-3">
               {['upload', 'scanning', 'form'].map((s, i) => (
@@ -241,7 +260,7 @@ export function UploadExpenseModal({ open, onClose, onSuccess }: UploadExpenseMo
               </div>
               <div className="max-w-xs mx-auto space-y-2">
                 <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span>Processing with GPT-4o...</span>
+                  <span>Processing with AI...</span>
                   <span>{Math.min(100, Math.round(scanProgress))}%</span>
                 </div>
                 <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -278,6 +297,11 @@ export function UploadExpenseModal({ open, onClose, onSuccess }: UploadExpenseMo
                   <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-0.5">{t('uploadFormSubtitle')}</p>
                 </div>
               </div>
+              {editedFields.length > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                  Manually edited: {editedFields.join(', ')}
+                </div>
+              )}
 
               {previewUrl && (
                 <div className="h-32 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
@@ -312,12 +336,17 @@ export function UploadExpenseModal({ open, onClose, onSuccess }: UploadExpenseMo
                   <Input value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} type="date" className="h-10" required />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-sm font-medium">{t('uploadCategory')}</Label>
-                  <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v as DisplayCategory }))}>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent>{DISPLAY_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <Label className="text-sm font-medium">Time</Label>
+                  <Input value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} type="time" className="h-10" />
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">{t('uploadCategory')}</Label>
+                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v as DisplayCategory }))}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>{DISPLAY_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5">

@@ -25,6 +25,7 @@ export interface Expense {
   amount: number;
   currency: string;
   date: string;
+  time: string | null;
   merchant: string;
   category: ExpenseCategory;
   status: ExpenseStatus;
@@ -40,6 +41,7 @@ export interface CreateExpenseRequest {
   amount: number;
   currency: string;
   date: string;
+  time?: string;
   merchant: string;
   category: ExpenseCategory;
   notes?: string;
@@ -50,6 +52,7 @@ export interface ScannedReceiptData {
   amount?: number;
   currency?: string;
   date?: string;
+  time?: string;
   merchant?: string;
   category?: ExpenseCategory;
   notes?: string;
@@ -72,6 +75,7 @@ export function createExpense(payload: CreateExpenseRequest, file?: File): Promi
   formData.append('date', payload.date);
   formData.append('merchant', payload.merchant);
   formData.append('category', payload.category);
+  if (payload.time) formData.append('time', payload.time);
   if (payload.notes) formData.append('notes', payload.notes);
   if (payload.receiptMetadata) formData.append('receiptMetadata', JSON.stringify(payload.receiptMetadata));
   if (file) formData.append('receipt', file);

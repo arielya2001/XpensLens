@@ -14,6 +14,7 @@ Analyze the following receipt text and return ONLY a valid JSON object with thes
 - date: string (YYYY-MM-DD format)
 - merchant: string (business name)
 - category: string (exactly one of: TRAVEL, MEALS, OFFICE_SUPPLIES, ACCOMMODATION, SOFTWARE, ENTERTAINMENT, OTHER)
+- time: string (HH:MM in 24-hour format, if present on the receipt)
 - notes: string (any relevant info, e.g. client name for meals, trip destination for travel)
 - extra: object (any other relevant details: e.g. number_of_diners, tip_amount, payment_method, vat_number, vat_amount, address, phone, receipt_number, subtotal, discount — only include fields that appear in the receipt)
 
@@ -24,6 +25,7 @@ export interface ExtractedReceiptData {
   amount?: number;
   currency?: string;
   date?: string;
+  time?: string;
   merchant?: string;
   category?: string;
   notes?: string;
@@ -88,7 +90,7 @@ export async function extractReceiptData(
 
   const response = await client.chat.completions.create({
     model: VISION_MODEL,
-    max_tokens: 1024,
+    max_tokens: 4096,
     messages: [
       {
         role: 'user',

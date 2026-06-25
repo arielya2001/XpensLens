@@ -51,7 +51,7 @@ const categoryColors: Record<string, string> = {
 export function AdminDashboard({ onViewAll, onViewInbox }: AdminDashboardProps) {
   const { t } = useApp();
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
-  const { year, month, prev, next, inMonth, isCurrentMonth } = useMonthFilter();
+  const { year, month, prev, next, inMonth, isCurrentMonth, goTo } = useMonthFilter();
 
   useEffect(() => {
     listExpenses().then(setAllExpenses);
@@ -100,7 +100,7 @@ export function AdminDashboard({ onViewAll, onViewInbox }: AdminDashboardProps) 
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t('dashboard')}</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Finance Admin Overview</p>
         </div>
-        <MonthPicker year={year} month={month} onPrev={prev} onNext={next} isCurrentMonth={isCurrentMonth} />
+        <MonthPicker year={year} month={month} onPrev={prev} onNext={next} isCurrentMonth={isCurrentMonth} onSelect={goTo} />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
